@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Azul Online</title>
+<style>
+
+:root{--bg:#f7f2e8;--ink:#1c2541;--card:#fffdf7;--line:#d8cfba;--ok:#2f8f8b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Iowan Old Style",serif;line-height:1.5}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:8px;padding:9px 16px}
+button.ghost{background:none;color:var(--ink)}button:focus-visible,.pick:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+.t{display:inline-block;width:var(--ts,30px);height:var(--ts,30px);border-radius:6px;background:var(--c);box-shadow:inset 0 -3px 0 #0003,0 1px 2px #0003;position:relative;transition:transform .15s,opacity .3s;vertical-align:top}
+.t::after{content:attr(data-s);position:absolute;inset:0;display:grid;place-items:center;color:#fff9;font-size:calc(var(--ts,30px)*.42)}
+.t.g{opacity:.16;box-shadow:none}.pick{cursor:pointer}.pick:hover{transform:translateY(-3px)}
+.t.sel{outline:3px solid var(--ink);outline-offset:1px;transform:translateY(-4px)}.t.dim{opacity:.4}
+.mk{display:inline-grid;place-items:center;width:var(--ts,30px);height:var(--ts,30px);border-radius:50%;background:var(--ink);color:#fff;font-size:calc(var(--ts,30px)*.5)}
+.fly{position:fixed;z-index:60;pointer-events:none;margin:0}
+section.screen{display:none;max-width:1200px;margin:0 auto;padding:20px}section.on{display:block}
+h1{font-size:clamp(3rem,9vw,6rem);letter-spacing:.04em;margin:.2em 0 0;font-weight:400}
+.sub{margin:0 0 24px;max-width:46ch}
+.form{display:grid;gap:12px;max-width:420px}.form label{display:grid;gap:4px;font-size:.9rem}
+.form input,.form select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+details{margin-top:24px;max-width:60ch}details li{margin:4px 0}
+.top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.pl{display:flex;gap:8px;align-items:center;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
+.pl.act{background:var(--ink);color:#fff;border-color:var(--ink)}.dot{width:10px;height:10px;border-radius:50%}
+#tl{font-variant-numeric:tabular-nums;font-weight:700;min-width:3ch}
+.table{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-bottom:18px}
+.facs{display:flex;flex-wrap:wrap;gap:10px;flex:1 1 380px;--ts:28px}
+.fac{width:92px;height:92px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:grid;grid-template-columns:repeat(2,auto);gap:4px;place-content:center}
+.center{flex:1 1 220px;min-height:96px;border:2px dashed var(--line);border-radius:18px;padding:10px;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;--ts:28px}
+.boards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+.board{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;--ts:22px;transition:box-shadow .3s}
+.board.act{--ts:32px;border-color:var(--ink);box-shadow:0 8px 28px #1c254126;grid-column:1/-1}
+.board header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}.sc{font-size:1.6rem}
+.mid{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.lines{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.line{display:flex;gap:3px;justify-content:flex-end;padding:3px;border-radius:8px;min-height:calc(var(--ts) + 6px)}
+.slot{width:var(--ts);height:var(--ts);border-radius:6px;border:1.5px dashed var(--line);display:inline-block}
+.line.ok{background:#2f8f8b1f;outline:2px solid var(--ok);cursor:pointer}.line.no{opacity:.5}
+.wall{display:grid;grid-template-columns:repeat(5,var(--ts));gap:3px}
+.floor{display:flex;gap:3px;margin-top:8px;justify-content:flex-start;align-items:flex-start}.fc{display:grid;justify-items:center;font-size:.7rem}
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:70;max-width:90vw}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+table{border-collapse:collapse;margin:12px 0;background:var(--card)}td,th{padding:6px 14px;border-bottom:1px solid var(--line);text-align:center}th:first-child,td:first-child{text-align:left}
+.cf{position:fixed;top:-20px;width:10px;height:14px;animation:fall linear forwards;z-index:5}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}.cf{display:none}}
+.inp{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);flex:1;min-width:240px}
+</style></head>
+<body>
+<section class="screen on" id="home">
+<h1>Azul</h1>
+<p class="sub">Play with friends online. Create a room, send the link, and play from your own devices.</p>
+<div class="form">
+<label>Your name<input id="nm" maxlength="14" placeholder="Name"></label>
+<div class="row"><button id="create">Create room</button></div>
+<label>Room code<input id="jc" maxlength="5" placeholder="e.g. K7M2P" style="text-transform:uppercase"></label>
+<div class="row"><button class="ghost" id="join">Join room</button></div>
+</div>
+<details><summary>How to play</summary><ol>
+<li>Take every tile of one colour from a factory; the rest slide to the centre. Or take one colour from the centre (the first to do so takes the first-player marker and a floor penalty).</li>
+<li>Place them in one pattern line. A line holds one colour, and not a colour already on that wall row. Extra tiles fall to the floor.</li>
+<li>When all tiles are taken, each full line sends one tile to the wall and scores for adjacent tiles. Floor tiles cost 1, 1, 2, 2, 2, 3, 3.</li>
+<li>The game ends after the round in which someone completes a wall row. Bonuses: row +2, column +7, all five of a colour +10.</li></ol></details>
+</section>
+<section class="screen" id="lobby"></section>
+<section class="screen" id="game"></section>
+<section class="screen" id="res"></section>
+<div id="toast" role="status"></div>
+<script type="module">
+import { canPlace, wallCol, COL, SYM, NAMES, PEN } from '/engine.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/config.js';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';');
+const tile = (c, x = '', a = '') => `<i class="t ${x}" style="--c:${COL[c]}" data-s="${SYM[c]}" ${a}></i>`;
+let AC, muted = false;
+function beep(f, d = .08) { if (muted) return; try { AC = AC || new AudioContext(); const o = AC.createOscillator(), g = AC.createGain(); o.frequency.value = f; g.gain.value = .04; g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + d); o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime + d) } catch (e) {} }
+let tt; function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 6000) }
+const show = id => document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+
+let S = null, code = null, me = -1, skew = 0, sel = null, lastNote = null, lastTurn = null, lastKey = '', busy = false, prev = {}, tickAt = 0, sub = null, done = false;
+const store = JSON.parse(localStorage.azul || '{}');
+const online = i => Date.now() + skew - ((S.seen || {})[i] || 0) < 40000;
+
+async function api(action, x = {}) {
+  try {
+    const r = await fetch('/api/act', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, code, token: store[code]?.token, ...x }) });
+    const txt = await r.text(); let d = {}; try { d = JSON.parse(txt) } catch {}
+    if (!r.ok || !d.state) { toast(d.error || (r.status === 404 ? 'API not found (404) — the /api folder was not deployed' : `Server error ${r.status} — check the Vercel environment variables and function logs`)); return null }
+    skew = d.now - Date.now(); return d;
+  } catch { toast('Could not reach the server — check your connection'); return null }
+}
+function apply(d) {
+  if (!d) return;
+  if (d.token) { store[code] = { token: d.token }; localStorage.azul = JSON.stringify(store) }
+  if (d.me !== undefined) me = d.me;
+  setState(d.state);
+}
+function setState(n) {
+  if (S && n.v < S.v) return; // ignore stale updates
+  const k = JSON.stringify({ ...n, seen: 0, v: 0 }), changed = k !== lastKey, first = !S;
+  lastKey = k; S = n;
+  if (n.note && n.note.id !== lastNote) { if (!first) { toast(n.note.msg); beep(300, .25) } lastNote = n.note.id }
+  if (!changed) return;
+  if (!S.g || S.g.turn !== me) sel = null;
+  if (S.status === 'lobby') { done = false; lobbyView() } else if (S.status === 'over') results(); else { done = false; render(); show('game') }
+  if (S.g && S.g.turn !== lastTurn) { if (lastTurn !== null && S.g.turn === me && S.status === 'playing') beep(700, .15); lastTurn = S.g.turn }
+}
+
+async function enter(c) {
+  code = c; history.replaceState(0, '', '/?room=' + c);
+  const d = await api('state');
+  if (!d) { code = null; history.replaceState(0, '', '/'); return show('home') }
+  apply(d); subscribe();
+}
+async function subscribe() {
+  if (!SUPABASE_URL || sub === code) return; sub = code;
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
+  createClient(SUPABASE_URL, SUPABASE_ANON_KEY).channel('g' + code)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `code=eq.${code}` }, p => setState(p.new.state)).subscribe();
+}
+$('#create').onclick = async () => { const d = await api('create', { name: $('#nm').value }); if (d) { code = d.code; apply(d); history.replaceState(0, '', '/?room=' + code); subscribe() } };
+$('#join').onclick = () => { const c = $('#jc').value.trim().toUpperCase(); if (c.length === 5) enter(c); else toast('Enter the 5-character room code.') };
+
+function lobbyView() {
+  const host = me === 0, link = `${location.origin}/?room=${code}`;
+  $('#lobby').innerHTML = `<h1 style="font-size:clamp(2.2rem,7vw,4rem)">Room ${code}</h1>
+  <div class="row"><input class="inp" id="lk" readonly value="${link}"><button id="cp">Copy invitation link</button></div>
+  <div class="top" style="margin-top:14px">${S.players.map((p, i) => `<span class="pl"><i class="dot" style="background:${COL[i]}"></i>${esc(p)}${i === 0 ? ' (host)' : ''}${i === me ? ' (you)' : ''}<i class="dot" style="background:${online(i) ? '#2f8f8b' : '#bbb'}" title="${online(i) ? 'online' : 'offline'}"></i></span>`).join('')}</div>
+  ${me < 0 ? `<div class="form" style="margin-top:14px"><label>Your name<input id="jn" maxlength="14" value="${esc($('#nm').value)}"></label><button id="jb">Join this game</button></div>` : ''}
+  ${host ? `<div class="form" style="margin-top:14px"><label>Move timer<select id="st">${[0, 15, 30, 45, 60, 90, 120].map(t => `<option value="${t}" ${S.opts.t === t ? 'selected' : ''}>${t ? t + ' seconds' : 'No time limit'}</option>`).join('')}</select></label>
+  <label>When time runs out<select id="to"><option value="auto" ${S.opts.timeout === 'auto' ? 'selected' : ''}>Play an automatic legal move</option><option value="floor" ${S.opts.timeout === 'floor' ? 'selected' : ''}>Drop tiles on the floor line</option></select></label>
+  <button id="go" ${S.players.length < 2 ? 'disabled' : ''}>Start game (${S.players.length} players)</button></div>` : me >= 0 ? '<p>Waiting for the host to start the game.</p>' : ''}`;
+  show('lobby');
+}
+$('#lobby').onclick = async e => {
+  if (e.target.id === 'cp') { navigator.clipboard.writeText($('#lk').value); toast('Invitation link copied.') }
+  if (e.target.id === 'jb') apply(await api('join', { name: $('#jn').value }));
+  if (e.target.id === 'go') apply(await api('start'));
+};
+$('#lobby').onchange = async e => { if (e.target.id === 'st' || e.target.id === 'to') apply(await api('settings', { t: $('#st').value, timeout: $('#to').value })) };
+
+const pick = (src, c, mine) => mine ? tile(c, 'pick ' + (sel && sel.src === src && sel.c === c ? 'sel' : sel ? 'dim' : ''), `data-src="${src}" data-c="${c}" aria-label="${NAMES[c]} tile"`) : tile(c);
+function board(g, P, i) {
+  const act = i === g.turn, mine = act && me === i && !!sel;
+  const lines = P.lines.map((L, r) => `<div class="line ${mine ? (canPlace(g, i, sel.c, r) === true ? 'ok' : 'no') : ''}" data-row="${r}">${Array.from({ length: r + 1 }, (_, j) => j >= r + 1 - L.k ? tile(L.c) : '<i class="slot"></i>').join('')}</div>`).join('');
+  const wall = P.wall.map((row, r) => row.map((on, c) => tile(wallCol(r, c), on ? '' : 'g')).join('')).join('');
+  const fl = Array.from({ length: 7 }, (_, j) => { const t = P.floor[j]; return `<span class="fc">${t === 5 ? '<i class="mk">1</i>' : t === undefined ? '<i class="slot"></i>' : tile(t)}-${PEN[j]}</span>` }).join('');
+  return `<section class="board ${act ? 'act' : ''}" data-p="${i}"><header><b>${esc(P.name)}${i === me ? ' (you)' : ''}</b><span class="sc" data-i="${i}" data-v="${P.score}">${prev[i] ?? P.score}</span></header>
+  <div class="mid"><div class="lines">${lines}</div><div class="wall">${wall}</div></div><div class="line floor ${mine ? 'ok' : ''}" data-row="5">${fl}</div></section>`;
+}
+function render() {
+  const g = S.g, mine = me === g.turn;
+  $('#game').innerHTML = `<div class="top">${g.players.map((P, i) => `<span class="pl ${i === g.turn ? 'act' : ''}"><i class="dot" data-i="${i}" style="background:${online(i) ? '#2f8f8b' : '#bbb'}"></i>${esc(P.name)}${i === me ? ' (you)' : ''} <b>${P.score}</b></span>`).join('')}<span class="pl">Round ${g.round}</span>${S.opts.t ? '<span class="pl">⏱ <span id="tl"></span></span>' : ''}<button class="ghost" id="mute">${muted ? 'Sound off' : 'Sound on'}</button></div>
+  <p>${me < 0 ? 'You are watching. ' : ''}${mine ? 'Your turn — take tiles from a factory or the centre' + (sel ? `, then choose a highlighted row for your ${NAMES[sel.c]} tiles` : '') + '.' : `Waiting for <b>${esc(g.players[g.turn].name)}</b>.`}</p>
+  <div class="table"><div class="facs">${g.factories.map((f, i) => `<div class="fac">${f.map(c => pick(i, c, mine)).join('')}</div>`).join('')}</div>
+  <div class="center">${g.marker ? '<i class="mk">1</i>' : ''}${g.center.map(c => pick('c', c, mine)).join('')}</div></div>
+  <div class="boards">${g.players.map((P, i) => board(g, P, i)).join('')}</div>`;
+  document.querySelectorAll('.sc').forEach(el => { const i = el.dataset.i, to = +el.dataset.v, from = prev[i] ?? to; prev[i] = to;
+    if (from !== to) { beep(660, .12); const t0 = performance.now(); (function f(t) { const k = Math.min(1, (t - t0) / 600); el.textContent = Math.round(from + (to - from) * k); if (k < 1) requestAnimationFrame(f) })(t0) } });
+}
+$('#game').onclick = async e => {
+  if (e.target.id === 'mute') { muted = !muted; return render() }
+  const t = e.target.closest('[data-src]'), l = e.target.closest('.line');
+  if (t) { sel = { src: t.dataset.src === 'c' ? 'c' : +t.dataset.src, c: +t.dataset.c }; beep(520, .06); return render() }
+  if (!l || !S.g) return;
+  if (me < 0) return toast('Spectators cannot move.');
+  if (me !== S.g.turn) return toast("It's not your turn.");
+  if (!sel) return toast('Pick tiles from a factory or the centre first.');
+  if (+l.closest('.board').dataset.p !== me) return toast('Place tiles on your own board.');
+  const row = +l.dataset.row, err = canPlace(S.g, me, sel.c, row);
+  if (err !== true) { beep(160, .15); return toast(err) }
+  if (busy) return; busy = true;
+  const c = sel.c, rects = [...document.querySelectorAll('.sel')].map(x => x.getBoundingClientRect());
+  const d = await api('move', { src: sel.src, c, row }); busy = false; sel = null;
+  if (d) { apply(d); fly(rects, me, row, c); beep(400, .1) } else render();
+};
+function fly(rects, p, row, c) {
+  const tg = document.querySelector(`.board[data-p="${p}"] .line[data-row="${row}"]`); if (!tg) return; const T = tg.getBoundingClientRect();
+  rects.forEach((r, i) => { const d = document.createElement('i'); d.className = 't fly'; d.dataset.s = SYM[c]; d.style.cssText = `--c:${COL[c]};--ts:${r.width}px;left:${r.left}px;top:${r.top}px`; document.body.append(d);
+    d.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${T.right - r.left - r.width - i * 6}px,${T.top - r.top}px)`, opacity: .1 }], { duration: 450 + i * 40, easing: 'ease-in-out' }).onfinish = () => d.remove() });
+}
+function results() {
+  const g = S.g, ps = g.players.map((P, i) => ({ P, b: g.bonus[i] })).sort((a, b) => b.P.score - a.P.score || b.b.rows - a.b.rows);
+  const w = ps.filter(x => x.P.score === ps[0].P.score && x.b.rows === ps[0].b.rows).map(x => esc(x.P.name)).join(' & ');
+  $('#res').innerHTML = `<h1 style="font-size:clamp(2rem,6vw,4rem)">${w} ${w.includes('&') ? 'share the win' : 'wins'}</h1>
+  <table><tr><th>Player</th><th>Final</th><th>Rows ×2</th><th>Columns ×7</th><th>Colours ×10</th></tr>${ps.map(x => `<tr><td>${esc(x.P.name)}</td><td><b>${x.P.score}</b></td><td>${x.b.rows} (+${x.b.rows * 2})</td><td>${x.b.cols} (+${x.b.cols * 7})</td><td>${x.b.sets} (+${x.b.sets * 10})</td></tr>`).join('')}</table>
+  <table><tr><th>Round</th>${g.players.map(P => `<th>${esc(P.name)}</th>`).join('')}</tr>${g.rounds.map((r, k) => `<tr><td>${k + 1}</td>${r.map(x => `<td>+${x.gain} −${x.pen} → ${x.score}</td>`).join('')}</tr>`).join('')}</table>
+  <div class="row">${me === 0 ? '<button id="again">Play again</button>' : '<span>Waiting for the host to start another game.</span>'}<button class="ghost" id="leave">Leave room</button></div>`;
+  show('res');
+  if (!done) { done = true; beep(523, .2); setTimeout(() => beep(784, .4), 200);
+    for (let i = 0; i < 50; i++) { const d = document.createElement('i'); d.className = 'cf'; d.style.cssText = `left:${Math.random() * 100}vw;background:${COL[i % 5]};animation-duration:${2 + Math.random() * 2.5}s;animation-delay:${Math.random()}s`; document.body.append(d); setTimeout(() => d.remove(), 6000) } }
+}
+$('#res').onclick = async e => { if (e.target.id === 'again') apply(await api('again')); if (e.target.id === 'leave') location.href = '/' };
+
+setInterval(() => { // synced countdown: the server decides when time is really up
+  if (!S || !S.g || S.status !== 'playing') return;
+  document.querySelectorAll('.dot[data-i]').forEach(d => d.style.background = online(+d.dataset.i) ? '#2f8f8b' : '#bbb');
+  if (!S.opts.t || !S.deadline) return;
+  const s = Math.ceil((S.deadline - Date.now() - skew) / 1000), el = $('#tl'); if (el) el.textContent = Math.max(0, s) + 's';
+  if (s <= 0 && me >= 0 && Date.now() - tickAt > 1500) { tickAt = Date.now(); api('tick').then(apply) }
+}, 250);
+setInterval(() => { if (code && me >= 0) api('ping').then(apply) }, 15000); // connection status
+setInterval(() => { if (code) api('state').then(apply) }, 4000); // fallback if realtime is not configured
+const room = new URLSearchParams(location.search).get('room'); if (room) enter(room.toUpperCase());
+</script></body></html>
