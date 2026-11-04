@@ -1,5 +1,5 @@
 /* ===== ENGINE (pure rules, no DOM) ===== */
-const COL=['#3f6fa3','#d4a24c','#b23a3a','#2f8f8b','#c9733f'],SYM='●▲■◆★',NAMES=['Blue','Mustard','Red','Teal','Terracotta'],PEN=[1,1,2,2,2,3,3];
+const COL=['#1f4e8c','#c9962b','#a52a2a','#1f7a78','#b85c38'],SYM='��儵������',NAMES=['Blue','Mustard','Red','Teal','Terracotta'],PEN=[1,1,2,2,2,3,3];
 const wallCol=(r,c)=>(c-r+5)%5, wallPos=(r,col)=>(col+r)%5;
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 function newGame(names,opts){const bag=[];for(let c=0;c<5;c++)for(let i=0;i<20;i++)bag.push(c);
@@ -21,6 +21,7 @@ function move(g,src,c,row){const p=g.turn,P=g.players[p],ok=canPlace(g,p,c,row);
  let k=take.length;
  if(row<5){const L=P.lines[row],put=Math.min(row+1-L.k,k);L.c=c;L.k+=put;k-=put}
  while(k-->0){if(P.floor.length<7)P.floor.push(c);else g.discard.push(c)}
+ g.mv=(g.mv||0)+1;
  if(g.factories.every(f=>!f.length)&&!g.center.length)endRound(g);else g.turn=(p+1)%g.n;return true}
 function endRound(g){const rs=[];
  g.players.forEach(P=>{let gain=0,pen=0;
@@ -50,4 +51,21 @@ function runTests(){const A=(c,m)=>console[c?'log':'error']((c?'PASS ':'FAIL ')+
  g=newGame(['a','b'],{});g.factories=[[],[],[],[],[]];g.center=[1];g.players[0].floor=[1,1,1];g.players[0].score=2;move(g,'c',1,5);A(g.round===1||g.over||g.players[0].score===0,'score never below zero');
  g=newGame(['a'],{});g.players[0].wall=Array.from({length:5},()=>Array(5).fill(true));finish(g);A(g.players[0].score===95,'full wall bonuses = 5*2+5*7+5*10')}
 
-export{COL,SYM,NAMES,PEN,wallCol,wallPos,newGame,canPlace,pts,move,autoMove,runTests};
+/* ===== BOTS: noob = mostly random, enthusiast = greedy with mistakes, expert = scores wall bonuses and penalties ===== */
+const penSum=(from,cnt)=>{let s=0;for(let j=from;j<Math.min(7,from+cnt);j++)s+=PEN[j];return s};
+function botMove(g,level){const p=g.turn,P=g.players[p],o=[];
+ for(const s of [...g.factories.keys(),'c']){const pool=s==='c'?g.center:g.factories[s];
+  for(const c of new Set(pool)){const n=pool.filter(t=>t===c).length;
+   for(let r=0;r<6;r++)if(canPlace(g,p,c,r)===true){const sp=r<5?r+1-P.lines[r].k:0;o.push({s,c,r,n,put:r<5?Math.min(sp,n):0,over:r<5?Math.max(0,n-sp):n,mk:s==='c'&&g.marker})}}}
+ if(level==='noob'){const pool=o.filter(m=>m.r<5),use=pool.length&&Math.random()<.7?pool:o;return use[Math.random()*use.length|0]}
+ const ex=level==='expert',sc=m=>{
+  let v=-penSum(P.floor.length,(m.mk?1:0)+m.over)*(ex?1.3:1);
+  if(m.r===5)return v-(ex?.5:0)+Math.random()*.05;
+  const k=P.lines[m.r].k+m.put,size=m.r+1,col=wallPos(m.r,m.c);
+  if(k===size){const w=P.wall.map(x=>x.slice());w[m.r][col]=true;v+=pts(w,m.r,col)*1.5;
+   if(ex){let cs=0;for(let i=0;i<5;i++)if(w[i][wallPos(i,m.c)])cs++;v+=w[m.r].filter(Boolean).length*.8+w.filter(x=>x[col]).length*1.2+cs*.8}}
+  else v+=(k/size)*2-(size-k)*.1;
+  return v+m.put*.25+Math.random()*(ex?.05:1.2)};
+ return o.map(m=>[sc(m),m]).sort((a,b)=>b[0]-a[0])[0][1]}
+
+export{COL,SYM,NAMES,PEN,wallCol,wallPos,newGame,canPlace,pts,move,autoMove,botMove,runTests};
