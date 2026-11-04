@@ -1,5 +1,5 @@
 /* ===== ENGINE (pure rules, no DOM) ===== */
-const COL=['#1f4e8c','#c9962b','#a52a2a','#1f7a78','#b85c38'],SYM='��儵������',NAMES=['Blue','Mustard','Red','Teal','Terracotta'],PEN=[1,1,2,2,2,3,3];
+const COL=['#2b95d6','#f2bf4a','#e4604d','#1d2634','#eaf2ee'],SYM='��儵������',NAMES=['Blue','Yellow','Red','Black','White'],PEN=[1,1,2,2,2,3,3];
 const wallCol=(r,c)=>(c-r+5)%5, wallPos=(r,col)=>(col+r)%5;
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 function newGame(names,opts){const bag=[];for(let c=0;c<5;c++)for(let i=0;i<20;i++)bag.push(c);
