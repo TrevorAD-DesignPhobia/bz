@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { newGame, move, autoMove } from '../engine.js';
+import { newGame, move, autoMove, botMove } from '../engine.js';
 
 const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -33,10 +33,16 @@ async function persist(code, row, S) {
   return pub;
 }
 
+function arm(S, now) { // sets the human move deadline, or schedules the next bot move
+  const g = S.g, bot = S.status === 'playing' && S.bots && S.bots[g.turn] !== undefined;
+  S.deadline = S.status === 'playing' && S.opts.t && !bot ? now + S.opts.t * 1000 : null;
+  S.botAt = bot ? now + 1300 + (Math.random() * 700 | 0) : null;
+}
+
 function after(S, r0, now, msg) {
   const g = S.g, parts = msg ? [msg] : [];
   if (g.over) S.status = 'over';
-  S.deadline = S.status === 'playing' && S.opts.t ? now + S.opts.t * 1000 : null;
+  arm(S, now);
   if (g.round !== r0 || g.over) {
     const rs = g.rounds[g.rounds.length - 1];
     parts.push('Round scored — ' + g.players.map((P, i) => `${P.name} +${rs[i].gain}/−${rs[i].pen}`).join(', '));
@@ -49,23 +55,24 @@ export default async function handler(req, res) {
   const b = req.body || {}, A = b.action, now = Date.now();
   try {
     if (A === 'create') {
-      const token = randomUUID();
+      const token = randomUUID(); let last;
       for (let i = 0; i < 5; i++) {
         const code = rid();
         const S = { status: 'lobby', players: [clean(b.name)], opts: { t: 30, timeout: 'auto' }, seen: { 0: now }, g: null, deadline: null, v: 0 };
         const { error } = await db.from('games').insert({ code, state: S, status: 'lobby', version: 0 });
+        last = error;
         if (!error) {
           await db.from('seats').insert({ code, idx: 0, token });
           return res.json({ code, token, me: 0, state: S, now });
         }
       }
-      throw E(500, 'Could not create a room');
+      throw E(500, 'Could not create a room: ' + (last?.message || last?.code || 'unknown'));
     }
 
     const code = String(b.code || '').toUpperCase();
     const { row, S, seats } = await load(code);
     const seat = seats.find(s => b.token && s.token === b.token);
-    let me = seat ? seat.idx : -1, dirty = false, token;
+    let me = seat ? seat.idx : -1, dirty = false, token, post;
     const g = S.g;
 
     if (A === 'join') {
@@ -89,7 +96,7 @@ export default async function handler(req, res) {
       if ((A === 'start' && S.status !== 'lobby') || (A === 'again' && S.status !== 'over')) throw E(400, 'Not available right now');
       if (S.players.length < 2) throw E(400, 'Wait for at least one more player');
       S.g = newGame(S.players, S.opts); S.status = 'playing'; S.note = null;
-      S.deadline = S.opts.t ? now + S.opts.t * 1000 : null; dirty = true;
+      arm(S, now); dirty = true;
     } else if (A === 'move') {
       if (S.status !== 'playing') throw E(400, 'The game is not running');
       if (me < 0 || me !== g.turn) throw E(403, "It's not your turn");
@@ -101,9 +108,39 @@ export default async function handler(req, res) {
         const nm = g.players[g.turn].name, r0 = g.round;
         autoMove(g); after(S, r0, now, `Time's up — automatic move for ${nm}.`); dirty = true;
       }
+    } else if (A === 'addbot') {
+      if (me !== 0 || S.status !== 'lobby') throw E(403, 'Only the host can add bots');
+      if (S.players.length >= 4) throw E(400, 'The room is full (4 players)');
+      const name = ['Ada', 'Bram', 'Cleo', 'Dara', 'Elio', 'Faye'].find(n => !S.players.includes(n));
+      S.bots = S.bots || {};
+      S.bots[S.players.length] = ['noob', 'enthusiast', 'expert'].includes(b.level) ? b.level : 'enthusiast';
+      S.players.push(name); dirty = true;
+    } else if (A === 'botlevel') {
+      if (me !== 0 || S.status !== 'lobby' || !S.bots || S.bots[b.i] === undefined) throw E(403, 'Not allowed');
+      if (!['noob', 'enthusiast', 'expert'].includes(b.level)) throw E(400, 'Invalid level');
+      S.bots[b.i] = b.level; dirty = true;
+    } else if (A === 'rmbot') {
+      const i = +b.i;
+      if (me !== 0 || S.status !== 'lobby' || !S.bots || S.bots[i] === undefined) throw E(403, 'Not allowed');
+      S.players.splice(i, 1);
+      const bots = {}, seen = {};
+      S.players.forEach((_, j) => { const o = j >= i ? j + 1 : j; if (S.bots[o] !== undefined) bots[j] = S.bots[o]; if (S.seen[o] !== undefined) seen[j] = S.seen[o]; });
+      S.bots = bots; S.seen = seen; dirty = true;
+      post = async () => { for (const s of seats.filter(s => s.idx > i).sort((x, y) => x.idx - y.idx)) await db.from('seats').update({ idx: s.idx - 1 }).eq('code', code).eq('idx', s.idx); };
+    } else if (A === 'react') {
+      if (me < 0) throw E(403, 'Join the game to react');
+      if (!['👏', '😮', '😂', '🔥', '😈', '🎉', '😭', '🤝'].includes(b.e)) throw E(400, 'Unknown reaction');
+      if (S.react && now - S.react.at < 700) throw E(429, 'Slow down');
+      S.react = { id: now, at: now, from: me, e: b.e }; dirty = true;
+    } else if (A === 'bot') { // any player's browser may nudge; the server decides if a bot is due
+      if (S.status === 'playing' && S.bots && S.bots[g.turn] !== undefined && S.botAt && now >= S.botAt) {
+        const r0 = g.round, m = botMove(g, S.bots[g.turn]);
+        move(g, m.s, m.c, m.r); after(S, r0, now); dirty = true;
+      }
     } else if (A !== 'state') throw E(400, 'Unknown action');
 
     const out = dirty ? await persist(code, row, S) : view(S);
+    if (dirty && post) await post();
     res.json({ state: out, me, token, now: Date.now() });
   } catch (e) {
     if (!e.c) console.error(e);
